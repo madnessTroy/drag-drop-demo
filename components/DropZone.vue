@@ -3,16 +3,20 @@
 		@dragover.prevent
 		@drop="handleDrop($event)"
 		ref="dropzoneRef"
-		class="h-dvh border bg-white rounded relative">
+		class="h-dvh w-full border bg-white rounded relative overflow-x-hidden">
 		<template v-if="dropItems.length">
+			<!-- :value="value"
+					@change="handleChangeValue($event, id)" -->
 			<template
 				v-for="{ id, element, value, ...styles } in dropItems"
 				:key="id">
-				<!-- @change="handleChangeValue($event, id)" -->
 				<component
 					:is="element === 'app-date-field' ? AppDateField : element"
 					:style="{ ...styles }"
 					:value="value"
+					@input="handleInput($event.target.value, id)"
+					@change="handleChangeValue($event.target.value, id)"
+					@date-change="(value) => handleChangeValue(value, id)"
 					class="border w-30 absolute"
 					draggable="true"
 					@dragover.prevent
@@ -63,8 +67,9 @@ const handleDrop = (evt: DragEvent) => {
 		dropItems.value.push({
 			...dragInfo,
 			...offset,
-			value: null,
+			value: '',
 		})
+		storageServices.saveLocalItem(storageKeyConstant.STORAGE_DRAG_ITEMS, dropItems.value)
 		return
 	}
 
@@ -75,6 +80,7 @@ const handleDrop = (evt: DragEvent) => {
 		...offset,
 		isChangePosition: false,
 	}
+	storageServices.saveLocalItem(storageKeyConstant.STORAGE_DRAG_ITEMS, dropItems.value)
 }
 
 const handleChangePosition = (evt: DragEvent, id: DragElement['id']) => {
@@ -91,23 +97,29 @@ const handleChangePosition = (evt: DragEvent, id: DragElement['id']) => {
 	}
 }
 
-const handleChangeValue = (evt: Event, id: DragElement['id']) => {
-	const { value } = evt.target as HTMLInputElement
+const handleInput = (value: string, id: DragElement['id']) => {
 	const itemToMove = findIndexDropById(id)
+
+	if (!value || itemToMove < 0) return
 
 	dropItems.value[itemToMove] = {
 		...dropItems.value[itemToMove],
 		value,
 	}
-
-	storageServices.saveLocalItem(storageKeyConstant.STORAGE_DRAG_ITEMS, dropItems.value)
 }
 
-watch(dropItems.value, (newVal, oldVal) => {
-	const isDiff = commonHelpers.compareArray(newVal, oldVal)
-	console.log(isDiff)
-	if (isDiff) return storageServices.saveLocalItem(storageKeyConstant.STORAGE_DRAG_ITEMS, newVal)
-})
+const handleChangeValue = (value: string, id) => {
+	const itemToMove = findIndexDropById(id)
+
+	if (!value || itemToMove < 0) return
+
+	dropItems.value[itemToMove] = {
+		...dropItems.value[itemToMove],
+		value,
+	}
+	console.log(dropItems.value[itemToMove])
+	storageServices.saveLocalItem(storageKeyConstant.STORAGE_DRAG_ITEMS, dropItems.value)
+}
 
 onMounted(() => {
 	const savedDragItem = storageServices.getLocalItem(
