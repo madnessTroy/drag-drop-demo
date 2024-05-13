@@ -117,7 +117,7 @@ const handleChangeValue = (value: string, id) => {
 		...dropItems.value[itemToMove],
 		value,
 	}
-	console.log(dropItems.value[itemToMove])
+
 	storageServices.saveLocalItem(storageKeyConstant.STORAGE_DRAG_ITEMS, dropItems.value)
 }
 
