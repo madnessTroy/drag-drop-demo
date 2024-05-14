@@ -8,10 +8,11 @@
 			<template
 				v-for="{ id, element, value, top, left } in dropItems"
 				:key="id">
-				<!-- :value="value" @input="handleInput($event.target.value, id)"
-				@change="handleChangeValue($event.target.value, id)" -->
 				<component
 					:is="handleRender(element)"
+					:value="value"
+					@input="handleInput($event.target.value, id)"
+					@change="handleChangeValue($event.target.value, id)"
 					:style="{ ...parseStyle({ top, left }), cursor: 'grab' }"
 					@date-change="(value) => handleChangeValue(value, id)"
 					class="border w-30 absolute"

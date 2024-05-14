@@ -2,50 +2,72 @@
 	<input
 		type="text"
 		v-model="formattedValue"
-		placeholder="YYYY-MM-DD"
 		@input="onInput"
 		@keydown="onKeydown"
 		@focus="onFocus"
+		placeholder="YYYY-MM-DD"
 		maxlength="10" />
 </template>
 
 <script setup lang="ts">
-const formattedValue = ref('')
+import { ref, watch } from 'vue'
+
+const props = defineProps<{
+	value: string
+	draggable: 'true' | 'false'
+}>()
+
+const emits = defineEmits(['date-change'])
+
+const formattedValue = ref(props.value || '')
+const rawValue = ref('')
 
 const onInput = (event: Event) => {
 	const input = event.target as HTMLInputElement
 	let value = input.value.replace(/[^0-9]/g, '')
 
-	if (value.length > 4 && value.length <= 6) {
-		value = value.slice(0, 4) + '-' + value.slice(4)
-	} else if (value.length > 6) {
-		value = value.slice(0, 4) + '-' + value.slice(4, 6) + '-' + value.slice(6, 8)
+	if (value.length <= 8) {
+		let year = value.slice(0, 4)
+		let month = value.slice(4, 6)
+		let day = value.slice(6, 8)
+
+		if (month.length > 0) {
+			year += '-'
+		}
+		if (day.length > 0) {
+			month += '-'
+		}
+
+		formattedValue.value = `${year}${month}${day}`
+	} else {
+		formattedValue.value = value.slice(0, 4) + '-' + value.slice(4, 6) + '-' + value.slice(6, 8)
 	}
 
-	formattedValue.value = value
+	// Move the cursor to the right place
+	setTimeout(() => {
+		const cursorPosition = formattedValue.value.length
+		input.setSelectionRange(cursorPosition, cursorPosition)
+	})
 }
 
 const onKeydown = (event: KeyboardEvent) => {
 	const input = event.target as HTMLInputElement
-	const allowedKeys = ['Backspace', 'ArrowLeft', 'ArrowRight', 'Tab']
 
-	// Allow only numbers and specific keys
+	// Prevent entering non-numeric values except for navigation keys
+	const allowedKeys = ['Backspace', 'ArrowLeft', 'ArrowRight', 'Tab']
 	if (!allowedKeys.includes(event.key) && isNaN(Number(event.key))) {
-		console.log('wrong')
 		event.preventDefault()
 	}
 
 	// Handle deletion of hyphens
-	if (event.key === 'Backspace') {
-		const cursorPos = input.selectionStart
-		if (cursorPos === 5 || cursorPos === 8) {
-			formattedValue.value =
-				formattedValue.value.slice(0, cursorPos - 1) + formattedValue.value.slice(cursorPos)
-			setTimeout(() => {
-				input.setSelectionRange(cursorPos - 1, cursorPos - 1)
-			})
-			event.preventDefault()
-		}
+	if (event.key === 'Backspace' && (input.selectionStart === 5 || input.selectionStart === 8)) {
+		rawValue.value = rawValue.value.slice(0, -1)
+		formattedValue.value = formattedValue.value.slice(0, -1)
+		event.preventDefault()
+		setTimeout(() => {
+			const cursorPosition = formattedValue.value.length
+			input.setSelectionRange(cursorPosition, cursorPosition)
+		})
 	}
 }
 
@@ -58,7 +80,6 @@ const onFocus = (event: FocusEvent) => {
 	})
 }
 
-// Ensure the formatted value is updated correctly
 watch(formattedValue, (newValue) => {
 	if (newValue.length === 10) {
 		const year = parseInt(newValue.slice(0, 4))
@@ -67,6 +88,7 @@ watch(formattedValue, (newValue) => {
 
 		// Validate the date components
 		if (month < 1 || month > 12 || day < 1 || day > 31) {
+			rawValue.value = rawValue.value.slice(0, -1)
 			formattedValue.value = formattedValue.value.slice(0, -1)
 		}
 	}
