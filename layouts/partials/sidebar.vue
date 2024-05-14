@@ -6,9 +6,13 @@
 		<div class="p-4 border h-dvh">
 			<el-text size="large">Fields</el-text>
 
-			<DragTextField />
+			<drag-container element-type="text">
+				<el-text>Text field</el-text>
+			</drag-container>
 
-			<DragDateField />
+			<drag-container element-type="date">
+				<el-text>Date field</el-text>
+			</drag-container>
 		</div>
 	</el-aside>
 </template>

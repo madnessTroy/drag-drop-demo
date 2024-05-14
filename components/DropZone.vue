@@ -5,50 +5,64 @@
 		ref="dropzoneRef"
 		class="h-dvh w-full border bg-white rounded relative overflow-x-hidden">
 		<template v-if="dropItems.length">
-			<!-- :value="value"
-					@change="handleChangeValue($event, id)" -->
 			<template
-				v-for="{ id, element, value, ...styles } in dropItems"
+				v-for="{ id, element, value, top, left } in dropItems"
 				:key="id">
+				<!-- :value="value" @input="handleInput($event.target.value, id)"
+				@change="handleChangeValue($event.target.value, id)" -->
 				<component
-					:is="element === 'app-date-field' ? AppDateField : element"
-					:style="{ ...styles }"
-					:value="value"
-					@input="handleInput($event.target.value, id)"
-					@change="handleChangeValue($event.target.value, id)"
+					:is="handleRender(element)"
+					:style="{ ...parseStyle({ top, left }), cursor: 'grab' }"
 					@date-change="(value) => handleChangeValue(value, id)"
 					class="border w-30 absolute"
 					draggable="true"
+					ref="droppedItemRef"
 					@dragover.prevent
-					@dragstart="handleChangePosition($event, id)" />
+					@dragstart="handleElementDragStart($event, id)"
+					@drag="handleElementDrag($event, id)"
+					@dragend="handleElementDragEnd($event, id)" />
 			</template>
 		</template>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { dragKeyConstant, storageKeyConstant } from '~/constants/index'
-import { commonHelpers } from '~/helpers/index'
+import { ref, computed, onMounted } from 'vue'
 import { storageServices } from '~/services/index'
+import { dragKeyConstant, storageKeyConstant } from '~/constants/index'
+import type { AvailableDragElement } from '~/@types/drag.types'
 
-import { type DragElement } from '~/@types/drag'
+const MAPPING_DRAG_COMPONENT: Record<AvailableDragElement, any> = {
+	text: resolveComponent('app-autosize-text-field'),
+	date: resolveComponent('app-date-text-field'),
+}
 
 const dropzoneRef = ref<HTMLDivElement>(null)
 const dropItems = ref<DragElement[]>([])
+const droppedItemRef = ref(null)
 
-const dropzoneBoundry = computed(() => dropzoneRef.value!.getBoundingClientRect())
+const dropzoneBoundry = computed(
+	() => dropzoneRef.value && dropzoneRef.value.getBoundingClientRect(),
+)
+
+const handleRender = (elementType: AvailableDragElement) => MAPPING_DRAG_COMPONENT[elementType]
 
 const findIndexDropById = (id: DragElement['id']) => {
 	return dropItems.value.findIndex((item) => item.id.toString() === id.toString())
 }
 
-const AppDateField = resolveComponent('app-date-field')
+const parseStyle = (style: Record<string, number>) => {
+	const result = {}
+	for (const key in style) {
+		result[key] = style[key] + 'px'
+	}
+	return result
+}
 
 const handleDrop = (evt: DragEvent) => {
 	const check =
 		evt.dataTransfer!.getData(dragKeyConstant.DRAG_GENERAL_KEY) ===
 		dragKeyConstant.DRAG_ITEM_KEY
-
 	if (!check) return
 
 	const dragInfo = JSON.parse(evt.dataTransfer!.getData(dragKeyConstant.DRAG_INFO_KEY))
@@ -57,16 +71,17 @@ const handleDrop = (evt: DragEvent) => {
 		y: evt.clientY,
 	}
 
-	const offset = {
-		left: dropPosition.x - dropzoneBoundry.value.left + 'px',
-		top: dropPosition.y - dropzoneBoundry.value.top + 'px',
-	}
-
 	// New Item
-	if (!dragInfo.isChangePosition) {
+	if (!dragInfo.isDragging) {
+		const offset = {
+			left: dropPosition.x - dropzoneBoundry.value.x,
+			top: dropPosition.y - dropzoneBoundry.value.y,
+		}
+
 		dropItems.value.push({
 			...dragInfo,
-			...offset,
+			left: offset.left,
+			top: offset.top,
 			value: '',
 		})
 		storageServices.saveLocalItem(storageKeyConstant.STORAGE_DRAG_ITEMS, dropItems.value)
@@ -75,26 +90,47 @@ const handleDrop = (evt: DragEvent) => {
 
 	// Edit Position existed item
 	const itemToMove = findIndexDropById(dragInfo.id)
+	const offset = {
+		left: dropPosition.x - dropzoneBoundry.value.x,
+		top: dropPosition.y - dropzoneBoundry.value.y,
+	}
+
 	dropItems.value[itemToMove] = {
 		...dragInfo,
 		...offset,
-		isChangePosition: false,
 	}
 	storageServices.saveLocalItem(storageKeyConstant.STORAGE_DRAG_ITEMS, dropItems.value)
 }
 
-const handleChangePosition = (evt: DragEvent, id: DragElement['id']) => {
+const handleElementDragStart = (evt: DragEvent, id: DragElement['id']) => {
 	const itemToMove = findIndexDropById(id)
+	dropItems.value[itemToMove].isDragging = true
+	const img = new Image()
+	img.src =
+		'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/wcAAwAB/efRX9wAAAAASUVORK5CYII='
+	evt.dataTransfer!.setDragImage(img, 0, 0)
+}
 
-	if (itemToMove >= 0) {
-		const newPosition: DragInfo = {
-			...dropItems.value[itemToMove],
-			isChangePosition: true,
-		}
+const handleElementDrag = (evt: DragEvent, id: DragElement['id']) => {
+	const itemToMove = findIndexDropById(id)
+	if (!dropItems.value[itemToMove].isDragging) return
 
-		evt.dataTransfer!.setData(dragKeyConstant.DRAG_GENERAL_KEY, dragKeyConstant.DRAG_ITEM_KEY)
-		evt.dataTransfer!.setData(dragKeyConstant.DRAG_INFO_KEY, JSON.stringify(newPosition))
+	const dropzoneBoundry = dropzoneRef.value.getBoundingClientRect()
+	const offset = {
+		left: evt.clientX - dropzoneBoundry.left,
+		top: evt.clientY - dropzoneBoundry.top,
 	}
+
+	dropItems.value[itemToMove] = {
+		...dropItems.value[itemToMove],
+		left: offset.left,
+		top: offset.top,
+	}
+}
+
+const handleElementDragEnd = (evt: DragEvent, id: DragElement['id']) => {
+	const itemToMove = findIndexDropById(id)
+	dropItems.value[itemToMove].isDragging = false
 }
 
 const handleInput = (value: string, id: DragElement['id']) => {
@@ -108,7 +144,7 @@ const handleInput = (value: string, id: DragElement['id']) => {
 	}
 }
 
-const handleChangeValue = (value: string, id) => {
+const handleChangeValue = (value: string, id: DragElement['id']) => {
 	const itemToMove = findIndexDropById(id)
 
 	if (!value || itemToMove < 0) return
@@ -125,6 +161,6 @@ onMounted(() => {
 	const savedDragItem = storageServices.getLocalItem(
 		storageKeyConstant.STORAGE_DRAG_ITEMS,
 	) as DragElement[]
-	if (savedDragItem) return (dropItems.value = savedDragItem)
+	if (savedDragItem) dropItems.value = savedDragItem
 })
 </script>
