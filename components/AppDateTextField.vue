@@ -1,6 +1,7 @@
 <template>
 	<input
 		type="text"
+		:draggable="props.draggable"
 		v-model="formattedValue"
 		@input="onInput"
 		@keydown="onKeydown"
@@ -102,5 +103,7 @@ input {
 	font-size: 16px;
 	border: 1px solid #ccc;
 	border-radius: 4px;
+	background-color: white;
+	z-index: 10;
 }
 </style>

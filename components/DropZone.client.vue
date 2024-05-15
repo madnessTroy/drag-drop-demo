@@ -13,7 +13,7 @@
 					:value="value"
 					@input="handleInput($event.target.value, id)"
 					@change="handleChangeValue($event.target.value, id)"
-					:style="{ ...parseStyle({ top, left }), cursor: 'grab' }"
+					:style="{ ...parseStyle({ top, left }) }"
 					@date-change="(value) => handleChangeValue(value, id)"
 					class="border w-30 absolute"
 					draggable="true"
@@ -106,10 +106,16 @@ const handleDrop = (evt: DragEvent) => {
 const handleElementDragStart = (evt: DragEvent, id: DragElement['id']) => {
 	const itemToMove = findIndexDropById(id)
 	dropItems.value[itemToMove].isDragging = true
+
 	const img = new Image()
 	img.src =
 		'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/wcAAwAB/efRX9wAAAAASUVORK5CYII='
 	evt.dataTransfer!.setDragImage(img, 0, 0)
+
+	const element = evt.target as HTMLElement
+	const boundingRect = element.getBoundingClientRect()
+	dropItems.value[itemToMove].offsetX = evt.clientX - boundingRect.left
+	dropItems.value[itemToMove].offsetY = evt.clientY - boundingRect.top
 }
 
 const handleElementDrag = (evt: DragEvent, id: DragElement['id']) => {
@@ -117,21 +123,38 @@ const handleElementDrag = (evt: DragEvent, id: DragElement['id']) => {
 	if (!dropItems.value[itemToMove].isDragging) return
 
 	const dropzoneBoundry = dropzoneRef.value.getBoundingClientRect()
-	const offset = {
-		left: evt.clientX - dropzoneBoundry.left,
-		top: evt.clientY - dropzoneBoundry.top,
-	}
 
 	dropItems.value[itemToMove] = {
 		...dropItems.value[itemToMove],
-		left: offset.left,
-		top: offset.top,
+		left: evt.clientX - dropzoneBoundry.left - dropItems.value[itemToMove].offsetX,
+		top: evt.clientY - dropzoneBoundry.top - dropItems.value[itemToMove].offsetY,
 	}
 }
 
 const handleElementDragEnd = (evt: DragEvent, id: DragElement['id']) => {
 	const itemToMove = findIndexDropById(id)
-	dropItems.value[itemToMove].isDragging = false
+	const dropzoneBoundry = dropzoneRef.value.getBoundingClientRect()
+
+	const element = evt.target as HTMLElement
+	const { width: elementWidth, height: elementHeight } = element.getBoundingClientRect()
+
+	if (
+		dropItems.value[itemToMove].left + elementWidth < 0 ||
+		dropItems.value[itemToMove].left > dropzoneBoundry.width ||
+		dropItems.value[itemToMove].top + elementHeight < 0 ||
+		dropItems.value[itemToMove].top > dropzoneBoundry.height
+	) {
+		dropItems.value.splice(itemToMove, 1)
+	} else {
+		dropItems.value[itemToMove].left = Math.max(
+			0,
+			Math.min(dropItems.value[itemToMove].left, dropzoneBoundry.width - elementWidth),
+		)
+		dropItems.value[itemToMove].top = Math.max(
+			0,
+			Math.min(dropItems.value[itemToMove].top, dropzoneBoundry.height - elementHeight),
+		)
+	}
 }
 
 const handleInput = (value: string, id: DragElement['id']) => {
