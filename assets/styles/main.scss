@@ -4,18 +4,19 @@
 
 @import '@/assets/fonts/inter/index.scss';
 @import 'reset';
+@import 'drag-element';
 
-body { 
-    font-family: 'Inter', sans-serif;
-    font-optical-sizing: auto;
+body {
+	font-family: 'Inter', sans-serif;
+	font-optical-sizing: auto;
 
-    height: 100dvh;
+	height: 100dvh;
 
-    background-color: #091E42;
-    padding-top: 16px;
-    padding-bottom: 16px;
+	background-color: #091e42;
+	padding-top: 16px;
+	padding-bottom: 16px;
 }
 
-#root-layout { 
-    height: 100dvh;
+#root-layout {
+	height: 100dvh;
 }

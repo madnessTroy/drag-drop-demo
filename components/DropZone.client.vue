@@ -6,47 +6,59 @@
 		class="h-dvh w-full border bg-white rounded relative overflow-x-hidden">
 		<template v-if="dropItems.length">
 			<template
-				v-for="{ id, element, value, top, left } in dropItems"
+				v-for="{ id, name, value, top, left, isFocus, dragImage } in dropItems"
 				:key="id">
-				<component
-					:is="handleRender(element)"
-					:value="value"
-					@input="handleInput($event.target.value, id)"
-					@change="handleChangeValue($event.target.value, id)"
-					:style="{ ...parseStyle({ top, left }) }"
-					@date-change="(value) => handleChangeValue(value, id)"
+				<div
+					v-if="!isFocus"
+					:class="dragImage.className"
 					class="border w-30 absolute"
+					:style="{ ...parseStyle({ top, left }) }"
 					draggable="true"
-					ref="droppedItemRef"
+					@dblclick="handleFocusElement(id)"
 					@dragover.prevent
 					@dragstart="handleElementDragStart($event, id)"
 					@drag="handleElementDrag($event, id)"
-					@dragend="handleElementDragEnd($event, id)" />
+					@dragend="handleElementDragEnd($event, id)">
+					<span>{{ dragImage.text }}</span>
+				</div>
+
+				<component
+					v-else
+					:style="{ ...parseStyle({ top, left }) }"
+					:is="renderComponent(name)"
+					autofocus
+					draggable="true"
+					:value="value"
+					ref="inputRef"
+					@input="handleInput($event.target.value, id)"
+					@change="handleChangeValue($event.target.value, id)"
+					@date-change="(value) => handleChangeValue(value, id)"
+					class="border w-30 absolute" />
 			</template>
 		</template>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
 import { storageServices } from '~/services/index'
 import { dragKeyConstant, storageKeyConstant } from '~/constants/index'
-import type { AvailableDragElement } from '~/@types/drag.types'
 
-const MAPPING_DRAG_COMPONENT: Record<AvailableDragElement, any> = {
+const MAP_COMPONENT = {
 	text: resolveComponent('app-autosize-text-field'),
+	name: resolveComponent('app-autosize-text-field'),
 	date: resolveComponent('app-date-text-field'),
+	default: resolveComponent('app-autosize-text-field'),
 }
 
 const dropzoneRef = ref<HTMLDivElement>(null)
 const dropItems = ref<DragElement[]>([])
-const droppedItemRef = ref(null)
+const inputRef = ref(null)
 
 const dropzoneBoundry = computed(
 	() => dropzoneRef.value && dropzoneRef.value.getBoundingClientRect(),
 )
 
-const handleRender = (elementType: AvailableDragElement) => MAPPING_DRAG_COMPONENT[elementType]
+const renderComponent = (elementName) => MAP_COMPONENT[elementName] ?? MAP_COMPONENT['default']
 
 const findIndexDropById = (id: DragElement['id']) => {
 	return dropItems.value.findIndex((item) => item.id.toString() === id.toString())
@@ -78,7 +90,7 @@ const handleDrop = (evt: DragEvent) => {
 			left: dropPosition.x - dropzoneBoundry.value.x,
 			top: dropPosition.y - dropzoneBoundry.value.y,
 		}
-
+		console.log(dragInfo)
 		dropItems.value.push({
 			...dragInfo,
 			left: offset.left,
@@ -88,29 +100,11 @@ const handleDrop = (evt: DragEvent) => {
 		storageServices.saveLocalItem(storageKeyConstant.STORAGE_DRAG_ITEMS, dropItems.value)
 		return
 	}
-
-	// Edit Position existed item
-	const itemToMove = findIndexDropById(dragInfo.id)
-	const offset = {
-		left: dropPosition.x - dropzoneBoundry.value.x,
-		top: dropPosition.y - dropzoneBoundry.value.y,
-	}
-
-	dropItems.value[itemToMove] = {
-		...dragInfo,
-		...offset,
-	}
-	storageServices.saveLocalItem(storageKeyConstant.STORAGE_DRAG_ITEMS, dropItems.value)
 }
 
 const handleElementDragStart = (evt: DragEvent, id: DragElement['id']) => {
 	const itemToMove = findIndexDropById(id)
 	dropItems.value[itemToMove].isDragging = true
-
-	const img = new Image()
-	img.src =
-		'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/wcAAwAB/efRX9wAAAAASUVORK5CYII='
-	evt.dataTransfer!.setDragImage(img, 0, 0)
 
 	const element = evt.target as HTMLElement
 	const boundingRect = element.getBoundingClientRect()
@@ -155,6 +149,16 @@ const handleElementDragEnd = (evt: DragEvent, id: DragElement['id']) => {
 			Math.min(dropItems.value[itemToMove].top, dropzoneBoundry.height - elementHeight),
 		)
 	}
+	return storageServices.saveLocalItem(storageKeyConstant.STORAGE_DRAG_ITEMS, dropItems.value)
+}
+
+const handleFocusElement = (id: DragElement['id']) => {
+	const itemToMove = findIndexDropById(id)
+
+	dropItems.value[itemToMove] = {
+		...dropItems.value[itemToMove],
+		isFocus: true,
+	}
 }
 
 const handleInput = (value: string, id: DragElement['id']) => {
@@ -181,10 +185,10 @@ const handleChangeValue = (value: string, id: DragElement['id']) => {
 	storageServices.saveLocalItem(storageKeyConstant.STORAGE_DRAG_ITEMS, dropItems.value)
 }
 
-onMounted(() => {
-	const savedDragItem = storageServices.getLocalItem(
-		storageKeyConstant.STORAGE_DRAG_ITEMS,
-	) as DragElement[]
-	if (savedDragItem) dropItems.value = savedDragItem
-})
+// onMounted(() => {
+// 	const savedDragItem = storageServices.getLocalItem(
+// 		storageKeyConstant.STORAGE_DRAG_ITEMS,
+// 	) as DragElement[]
+// 	if (savedDragItem) dropItems.value = savedDragItem
+// })
 </script>

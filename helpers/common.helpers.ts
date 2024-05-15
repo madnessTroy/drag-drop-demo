@@ -1,8 +1,7 @@
-export const compareArray = (arr1: Array<any>, arr2: Array<any>) => {
-	return (
-		Array.isArray(arr1) &&
-		Array.isArray(arr2) &&
-		arr1.length === arr2.length &&
-		arr1.every((val, index) => val === arr2[index])
-	)
+export const isEmpty = (value: any) => {
+	return ['', null, undefined].includes(value) || (Array.isArray(value) && value.length === 0)
+}
+
+export const isNumber = (number: any) => {
+	return !isEmpty(number) && !isNaN(Number(number))
 }
