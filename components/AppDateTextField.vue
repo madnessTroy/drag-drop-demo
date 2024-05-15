@@ -82,7 +82,7 @@ const onFocus = (event: FocusEvent) => {
 }
 
 watch(formattedValue, (newValue) => {
-	if (newValue.length === 10) {
+	if (newValue.length === 12) {
 		const year = parseInt(newValue.slice(0, 4))
 		const month = parseInt(newValue.slice(5, 7))
 		const day = parseInt(newValue.slice(8, 10))
